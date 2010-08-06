@@ -23,7 +23,7 @@ def timeline(request):
     start = request.GET.get('start')
     if request.user['is_authenticated']:
         tweets,next = cass.get_timeline(request.session['uname'], start=start,
-            limit=NUM_PER_PAGE)
+            limit=NUM_PER_PAGE) or ({}, None)
     else:
         tweets,next = cass.get_userline(cass.PUBLIC_USERLINE_KEY, start=start,
             limit=NUM_PER_PAGE)
