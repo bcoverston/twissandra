@@ -13,7 +13,7 @@ __all__ = ['get_user_by_username', 'get_friend_unames',
     'save_tweet', 'add_friends', 'remove_friends', 'DatabaseError',
     'NotFound', 'InvalidDictionary', 'PUBLIC_USERLINE_KEY']
 
-CLIENT = pycassa.connect_thread_local(framed_transport=True)
+CLIENT = pycassa.connect_thread_local(framed_transport=False)
 
 USER = pycassa.ColumnFamily(CLIENT, 'Twissandra', 'User',
     dict_class=OrderedDict)
