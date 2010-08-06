@@ -23,10 +23,9 @@ def migrate_users(ks):
     for key, row in USER.get_range():
         if 'id' in row:
             # Map the id to the uname for later use
-            uname = row['username']
-            if uname.startswith('"'):
-                uname = uname[1:-1]
-            uid_to_uname[row['id']] = uname
+            uname = row['username'][1:-1]
+            id_ = row['id'][1:-1]
+            uid_to_uname[id_] = uname
             # Get rid of id and username
             del row['id']
             del row['username']
@@ -36,7 +35,7 @@ def migrate_users(ks):
             USER.remove(key)
             USER.insert(uname, row)
             # This print will probably spam you to death. Please silence it.
-            print '    * User ' + uname + ' has been migrated.'
+            print '    * Migrated user %s / %s' % (uname, id_)
 
     # Now that we have a uid_to_uname mapping, it's time to
     #   change every other place where uid shows up.
@@ -69,7 +68,7 @@ def migrate_users(ks):
         if 'id' in row:
           del row['id']
           del row['_ts']
-          row['uname'] = uid_to_uname[row['user_id']]
+          row['uname'] = uid_to_uname[row['user_id'][1:-1]]
           del row['user_id']
           TWEET.remove(key)
           TWEET.insert(key, row)
