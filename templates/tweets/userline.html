@@ -9,6 +9,11 @@
             <li>
                 <a href="{% url userline tweet.uname %}" class="username">{{ tweet.uname }}</a>
                 <span class="body">{{ tweet.body|urlize }}</span>
+                {% if request.user.is_authenticated %}
+                  {% ifnotequal request.session.uname tweet.uname %}
+                    <span><a href="{% url retweet tweet.id %}">Retweet</a></span>
+                  {% endifnotequal %}
+                {% endif %}
             </li>
         {% empty %}
             <li>There are no tweets yet.  Make sure to post one!</li>

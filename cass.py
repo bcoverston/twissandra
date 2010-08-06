@@ -115,7 +115,11 @@ def _get_line(cf, uname, start, limit):
     # Now we do a multiget to get the tweets themselves, comes back in random order
     unordered_tweets = TWEET.multiget(timeline.values())
     # Order the tweets in the order we got back from the timeline
-    ordered_tweets   = [unordered_tweets.get(tweet_id) for tweet_id in timeline.values()]
+    ordered_tweets   = []
+    for id_ in timeline.values():
+        tweet = unordered_tweets.get(id_)
+        tweet['id'] = id_
+        ordered_tweets.append(tweet)
 
     # We want to get the information about the user who made the tweet
     # First, pull out the list of unique users for our tweets
@@ -251,3 +255,11 @@ def remove_friends(from_uname, to_unames):
         FRIENDS.remove(str(from_uname), column=str(uname))
     for to_uname in to_unames:
         FOLLOWERS.remove(str(to_uname), column=str(to_uname))
+
+def save_retweet(tweet_id, uname):
+    """
+    Records a retweet.
+    """
+    ts = _long(int(time.time() * 1e6))
+    # insert RT into user's timeline
+    # look at save_tweet for inspiration
