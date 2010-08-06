@@ -26,7 +26,7 @@ def timeline(request):
             limit=NUM_PER_PAGE) or ({}, None)
     else:
         tweets,next = cass.get_userline(cass.PUBLIC_USERLINE_KEY, start=start,
-            limit=NUM_PER_PAGE)
+            limit=NUM_PER_PAGE) or ({}, None)
     context = {
         'form': form,
         'tweets': tweets,
@@ -62,7 +62,7 @@ def userline(request, username=None):
     user['friend'] = username in friend_unames
     
     start = request.GET.get('start')
-    tweets,next = cass.get_userline(username, start=start, limit=NUM_PER_PAGE)
+    tweets,next = cass.get_userline(username, start=start, limit=NUM_PER_PAGE) or ({}, None)
     context = {
         'user': user,
         'username': username,
