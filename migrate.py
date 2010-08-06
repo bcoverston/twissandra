@@ -15,24 +15,26 @@ sys.path.insert(0, os.path.join(PROJECT_ROOT, 'deps'))
 
 from odict import OrderedDict
 import pycassa
-import cass
+from cass import USER, FRIENDS, FOLLOWERS, TWEET, TIMELINE, USERLINE
 
-def migrate_users(client,ks):
+def migrate_users(ks):
     print "  * Migrating Users"
-    USER = pycassa.ColumnFamily(client, ks, 'User', dict_class=OrderedDict)
-    uid_to_uname = dict()
-    for old_row in USER.get_range():
-        old_row_cols = old_row[1]
-        if old_row_cols.has_key('id'):
+    uid_to_uname = {}
+    for key, row in USER.get_range():
+        if 'id' in row:
             # Map the id to the uname for later use
-            uid_to_uname[old_row_cols['id']] = old_row_cols['username']
+            uname = row['username']
+            if uname.startswith('"'):
+                uname = uname[1:-1]
+            uid_to_uname[row['id']] = uname
             # Get rid of id and username
-            del old_row_cols['id']
-            uname = old_row_cols['username']
-            del old_row_cols['username']
+            del row['id']
+            del row['username']
+            # reset password
+            row['password'] = 'x'
             # Delete old, insert new with uname key and all the remaining args
-            USER.remove(old_row[0])
-            USER.insert(uname, old_row_cols)
+            USER.remove(key)
+            USER.insert(uname, row)
             # This print will probably spam you to death. Please silence it.
             print '    * User ' + uname + ' has been migrated.'
 
@@ -40,65 +42,53 @@ def migrate_users(client,ks):
     #   change every other place where uid shows up.
     print "  * Migrating uid to uname globally"
     print "    * Migrating Friends"
-    FRIENDS = pycassa.ColumnFamily(client, ks, 'Friends', dict_class=OrderedDict)
-    for old_row in FRIENDS.get_range():
-        if uid_to_uname.has_key(old_row[0]):
-            friends = old_row[1]
-            for friend in friends.keys():
-                friends[uid_to_uname[friend]] = friends[friend]
-                del friends[friend]
-            FRIENDS.remove(old_row[0])
-            FRIENDS.insert(uid_to_uname[old_row[0]],friends)
+    for key, row in FRIENDS.get_range():
+        if key in uid_to_uname:
+            for friend in row.keys():
+                row[uid_to_uname[friend]] = row[friend]
+                del row[friend]
+            FRIENDS.remove(key)
+            FRIENDS.insert(uid_to_uname[key], row)
             # This print will probably spam you to death. Please silence it.
-            print '      * Friends of ' + uid_to_uname[old_row[0]] + ' have been migrated.'
+            print '      * Friends of ' + uid_to_uname[key] + ' have been migrated.'
 
     print "    * Migrating Followers"
-    FOLLOWERS = pycassa.ColumnFamily(client, ks, 'Followers', dict_class=OrderedDict)
-    for old_row in FOLLOWERS.get_range():
-        if uid_to_uname.has_key(old_row[0]):
-            followers = old_row[1]
-            for follower in followers.keys():
-                followers[uid_to_uname[follower]] = followers[follower]
-                del followers[follower]
-            FOLLOWERS.remove(old_row[0])
-            FOLLOWERS.insert(uid_to_uname[old_row[0]],followers)
+    for key, row in FOLLOWERS.get_range():
+        if key in uid_to_uname:
+            for follower in row.keys():
+                row[uid_to_uname[follower]] = row[follower]
+                del row[follower]
+            FOLLOWERS.remove(key)
+            FOLLOWERS.insert(uid_to_uname[key], row)
             # This print will probably spam you to death. Please silence it.
-            print '      * Followers of ' + uid_to_uname[old_row[0]] + ' have been migrated.'
+            print '      * Followers of ' + uid_to_uname[key] + ' have been migrated.'
 
 
     print "    * Migrating Tweets"
-    TWEET = pycassa.ColumnFamily(client, ks, 'Tweet', dict_class=OrderedDict)
-    for old_row in TWEET.get_range():
-        old_row_cols = old_row[1]
-        if old_row_cols.has_key('id'):
-          del old_row_cols['id']
-          del old_row_cols['_ts']
-          old_row_cols['uname'] = uid_to_uname[old_row_cols['user_id']]
-          del old_row_cols['user_id']
-          TWEET.remove(old_row[0])
-          TWEET.insert(old_row[0],old_row_cols)
+    for key, row in TWEET.get_range():
+        if 'id' in row:
+          del row['id']
+          del row['_ts']
+          row['uname'] = uid_to_uname[row['user_id']]
+          del row['user_id']
+          TWEET.remove(key)
+          TWEET.insert(key, row)
           # This print will probably spam you to death. Please silence it.
-          print '      * Tweet ' + old_row[0] + ' has been migrated.'
+          print '      * Tweet ' + key + ' has been migrated.'
 
     print "    * Migrating Timeline"
-    TIMELINE  = pycassa.ColumnFamily(client, ks, 'Timeline', dict_class=OrderedDict)
-    for old_row in TIMELINE.get_range():
-        old_row_cols = old_row[1]
-        if uid_to_uname.has_key(old_row[0]):
-            TIMELINE.remove(old_row[0])
-            TIMELINE.insert(uid_to_uname[old_row[0]],old_row_cols)
+    for key, row in TIMELINE.get_range():
+        if key in uid_to_uname:
+            TIMELINE.remove(key)
+            TIMELINE.insert(uid_to_uname[key], row)
 
     print "    * Migrating Userline"
-    USERLINE  = pycassa.ColumnFamily(client, ks, 'Userline', dict_class=OrderedDict)
-    for old_row in USERLINE.get_range():
-        old_row_cols = old_row[1]
-        if uid_to_uname.has_key(old_row[0]):
-            USERLINE.remove(old_row[0])
-            USERLINE.insert(uid_to_uname[old_row[0]],old_row_cols)
+    for key, row in USERLINE.get_range():
+        if key in uid_to_uname:
+            USERLINE.remove(key)
+            USERLINE.insert(uid_to_uname[key], row)
    
 
 if __name__ == '__main__':
     print "  * Connecting to the database in keyspace 'Twissandra'"
-    client = pycassa.connect_thread_local(framed_transport=True)
-    ks = "Twissandra"
-    migrate_users(client,ks)
+    migrate_users("Twissandra")
