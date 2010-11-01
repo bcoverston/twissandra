@@ -24,7 +24,7 @@ install the project:
 
 ### Check out the latest Cassandra source code
 
-    curl -O http://download.filehat.com/apache/cassandra/0.6.1/apache-cassandra-0.6.1-bin.tar.gz
+    git clone git://git.apache.org/cassandra.git
 
 ### Check out the Twissandra source code
 
@@ -32,10 +32,10 @@ install the project:
 
 ### Install and configure Cassandra
 
-Now untar cassandra
+Now build Cassandra:
 
-    tar xvfz apache-cassandra-0.6.1-bin.tar.gz
-    cd apache-cassandra-0.6.1
+    cd cassandra
+    ant
 
 Then we need to create our database directories on disk:
 
@@ -44,17 +44,9 @@ Then we need to create our database directories on disk:
     sudo mkdir -p /var/lib/cassandra
     sudo chown -R `whoami` /var/lib/cassandra
 
-Now we copy the Cassandra configuration from the Twissandra source tree, and
-put it in its proper place in the Cassandra directory structure:
-
-    cp ../twissandra/storage-conf.xml conf/
-
 Finally we can start Cassandra:
 
     ./bin/cassandra -f
-
-This will run the Cassandra database (configured for Twissandra) in the
-foreground, so to continue, we'll need to open a new terminal.
 
 ### Install Thrift
 
@@ -84,43 +76,21 @@ Now let's install all of the dependencies:
 Now that we've got all of our dependencies installed, we're ready to start up
 the server.
 
-### Start up the webserver
+### Create the schema
 
-Make sure you're in the Twissandra checkout, and then start up the server:
+Make sure you're in the Twissandra checkout, and then run the sync_cassandra
+command to create the proper keyspace in Cassandra:
 
     cd twissandra
+    python manage.py sync_cassandra
+
+### Start up the webserver
+
+This is the fun part! We're done setting everything up, we just need to run it:
+
     python manage.py runserver
 
 Now go to http://127.0.0.1:8000/ and you can play with Twissandra!
-
-## Upgrade
-
-If you're running ericflo's Twissandra right now, you'll need to migrate your
-data to the new schema layout. Here's the steps:
-
-### Kill the running webserver.
-### Swap out the code.
-Create a new virtualenv for this code and switch to it, then either link the
-requirements or download them again. They're not that big.
-
-    cd twissfork
-    virtualenv ENV
-    source ENV/bin/activate
-    pip install -U -r twissandra/requirements.txt
-
-### Run the migrator. 
-NOTE: If you have a large amount of data, consider silencing the output of the 
-migrator. If you have a toy dataset, then it will just look pretty.
-
-    python migrate.py
-
-### Compact the database.
-This is optional, as cassandra will compact itself soon anyway.
-
-    CASS_0.6/bin/nodetool -h 127.0.0.1 compact
-
-### Restart the webserver 
-...and continue playing with Twissandra.
 
 ## Schema Layout
 
@@ -161,7 +131,7 @@ Tweets are stored with a tweet id for the key.
 
     Tweet = {
         '7561a442-24e2-11df-8924-001ff3591711': {
-            'uname': 'hermes',
+            'username': 'hermes',
             'body': 'Trying out Twissandra. This is awesome!',
         },
     }
