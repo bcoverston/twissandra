@@ -1,5 +1,5 @@
 import pycassa
-from pycassa.cassandra.ttypes import KsDef, CfDef
+from pycassa.cassandra.ttypes import KsDef, CfDef, ColumnDef
 
 from django.core.management.base import NoArgsCommand
 
@@ -8,13 +8,25 @@ class Command(NoArgsCommand):
     def handle_noargs(self, **options):
         # First we define all our column families
         column_families = [
-            CfDef('Twissandra', 'User', comparator_type='UTF8Type'),
-            CfDef('Twissandra', 'Username', comparator_type='BytesType'),
-            CfDef('Twissandra', 'Friends', comparator_type='BytesType'),
-            CfDef('Twissandra', 'Followers', comparator_type='BytesType'),
-            CfDef('Twissandra', 'Tweet', comparator_type='UTF8Type'),
-            CfDef('Twissandra', 'Timeline', comparator_type='LongType'),
-            CfDef('Twissandra', 'Userline', comparator_type='LongType'),
+            CfDef('Twissandra', 'User', 
+                  comparator_type='UTF8Type',
+                  column_metadata=[ColumnDef('password', 'UTF8Type')]),
+            CfDef('Twissandra', 'Tweet', 
+                  comparator_type='UTF8Type',
+                  column_metadata=[ColumnDef('body', 'UTF8Type'),
+                                   ColumnDef('username', 'UTF8Type')]),
+            CfDef('Twissandra', 'Friends', 
+                  comparator_type='UTF8Type',
+                  default_validation_class='UTF8Type'),
+            CfDef('Twissandra', 'Followers', 
+                  comparator_type='BytesType',
+                  default_validation_class='UTF8Type'),
+            CfDef('Twissandra', 'Timeline', 
+                  comparator_type='LongType',
+                  default_validation_class='UTF8Type'),
+            CfDef('Twissandra', 'Userline', 
+                  comparator_type='LongType',
+                  default_validation_class='UTF8Type'),
         ]
         # Now we define our keyspace (with column families inside)
         keyspace = KsDef(
