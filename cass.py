@@ -96,6 +96,7 @@ def _get_line(cf, username, start, limit):
     ordered_tweets   = []
     for id_ in timeline.values():
         tweet = unordered_tweets.get(id_)
+        assert tweet is not None, 'tweet %s not found' % id_
         tweet['id'] = id_
         ordered_tweets.append(tweet)
 
