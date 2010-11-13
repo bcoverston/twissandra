@@ -19,7 +19,7 @@ class Command(NoArgsCommand):
                   comparator_type='UTF8Type',
                   default_validation_class='UTF8Type'),
             CfDef('Twissandra', 'Followers', 
-                  comparator_type='BytesType',
+                  comparator_type='UTF8Type',
                   default_validation_class='UTF8Type'),
             CfDef('Twissandra', 'Timeline', 
                   comparator_type='LongType',
