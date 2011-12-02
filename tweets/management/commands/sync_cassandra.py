@@ -1,7 +1,7 @@
 import pycassa
 from pycassa.system_manager import *
 
-from cql import Connection
+import cql
 
 from django.core.management.base import NoArgsCommand
 
@@ -9,7 +9,7 @@ class Command(NoArgsCommand):
 
     def handle_noargs(self, **options):
         sys = SystemManager()
-        conn = Connection('localhost')
+        cursor = cql.connect('localhost').cursor()
 
         # If there is already a Twissandra keyspace, we have to ask the user
         # what they want to do with it.
@@ -23,15 +23,16 @@ class Command(NoArgsCommand):
                 return
             sys.drop_keyspace('Twissandra')
 
-        conn = Connection("localhost")
-        conn.execute("CREATE KEYSPACE twissandra WITH strategy_class='SimpleStrategy' and replication_factor=1") #V1 strategy become optional
-        conn.execute("USE twissandra")
-        conn.execute("CREATE COLUMNFAMILY users (password utf8)")
-        conn.execute("CREATE COLUMNFAMILY following (followed utf8, followed_by utf8)")
-        conn.execute("CREATE INDEX following_followed ON following(followed)")
-        conn.execute("CREATE INDEX following_followed_by ON following(followed_by)")
-        conn.execute("CREATE COLUMNFAMILY tweets (user_id utf8, body utf8)")
-        conn.execute("CREATE COLUMNFAMILY timeline WITH comparator=timeuuid")
-        conn.execute("CREATE COLUMNFAMILY userline WITH comparator=timeuuid")
+        cursor = cql.connect("localhost").cursor()
+        cursor.execute("DROP KEYSPACE twissandra")
+        cursor.execute("CREATE KEYSPACE twissandra WITH strategy_class='SimpleStrategy' and strategy_options:replication_factor=1") #V1 strategy become optional
+        cursor.execute("USE twissandra")
+        cursor.execute("CREATE COLUMNFAMILY users (KEY text PRIMARY KEY, password text)")
+        cursor.execute("CREATE COLUMNFAMILY following (KEY text PRIMARY KEY, followed text, followed_by text)")
+        cursor.execute("CREATE INDEX following_followed ON following(followed)")
+        cursor.execute("CREATE INDEX following_followed_by ON following(followed_by)")
+        cursor.execute("CREATE COLUMNFAMILY tweets (KEY uuid PRIMARY KEY, user_id text, body text)")
+        cursor.execute("CREATE COLUMNFAMILY timeline (KEY text PRIMARY KEY) WITH comparator=TimeUUIDType")
+        cursor.execute("CREATE COLUMNFAMILY userline (KEY text PRIMARY KEY) WITH comparator=TimeUUIDType")
 
         print 'All done!'
