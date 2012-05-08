@@ -13,7 +13,7 @@ class Command(NoArgsCommand):
 
         # If there is already a Twissandra keyspace, we have to ask the user
         # what they want to do with it.
-        if 'Twissandra' in sys.list_keyspaces():
+        if 'twissandra' in sys.list_keyspaces():
             msg = 'Looks like you already have a Twissandra keyspace.\nDo you '
             msg += 'want to delete it and recreate it? All current data will '
             msg += 'be deleted! (y/n): '
@@ -21,7 +21,7 @@ class Command(NoArgsCommand):
             if not resp or resp[0] != 'y':
                 print "Ok, then we're done here."
                 return
-            sys.drop_keyspace('Twissandra')
+            sys.drop_keyspace('twissandra')
 
         cursor = cql.connect("localhost").cursor()
         cursor.execute("DROP KEYSPACE twissandra")
