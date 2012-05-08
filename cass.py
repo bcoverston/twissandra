@@ -70,26 +70,28 @@ def _get_line(cf, username, start, limit):
     # so, that tweet's key (timestamp) is returned as the 'next' key for
     # pagination.
     next = None
-    cursor.execute("SELECT FIRST :count REVERSED :start..'' FROM :cf WHERE key = :username", {"count" : limit+1, "start" : start or '',"cf" : cf, "username" : username})
-    row = cursor.fetchone();
-    print row
-    print cursor.description;
-    if row == []:
+    if start == None:
+        start = uuid.UUID('{00000000-0000-1000-8000-000000000000}');
+    query = """
+    SELECT body, tweetid, author
+    FROM {0}
+    WHERE userid = :userid
+    AND tweetid < :start
+    ORDER BY tweetid DESC
+    limit :count;
+    """.format(cf);
+
+    cursor.execute(query, {"count" : limit+1, "start" : start , "userid" : username})
+    rows = cursor.fetchall();
+
+    if rows == []:
         return [], next
-    columns = cursor.description
-    if len(columns) > limit:
-        next = columns.pop().name[0]
 
     tweets = []
     # Now we do a manual join to get the tweets themselves
-    for entry in cursor.description:
-        tweet_id = entry[0]
-        print "getting tweet for ", tweet_id 
-        cursor.execute("SELECT username, body FROM tweets WHERE key = ':tweet_id'", {"tweet_id" : tweet_id})
-        row = cursor.fetchone()
-        print "thetweet", row;
-        d = _dictify_one_row(row, cursor.description)
-        tweets.append({'id': tweet_id, 'body': d['body'].decode('utf-8'), 'username': d['username']})
+    for row in rows:
+        tweet_id = row[0]
+        tweets.append({'id': row[1], 'body': row[0], 'username': row[2]})
 
     return (tweets, next)
 
@@ -100,7 +102,7 @@ def get_user_by_username(username):
     """
     Given a username, this gets the user record.
     """
-    cursor.execute("SELECT password FROM users WHERE key = :username", {"username" : username})
+    cursor.execute("SELECT password FROM users WHERE userid = :username", {"username" : username})
     columns = cursor.fetchone();
     if columns == []:
         raise NotFound('User %s not found' % (username,))
@@ -137,7 +139,7 @@ def get_tweet(tweet_id):
     """
     Given a tweet id, this gets the entire tweet record.
     """
-    cursor.execute("SELECT username, body FROM tweets WHERE key = :tweet_id", {"tweet_id" : tweet_id})
+    cursor.execute("SELECT username, body FROM tweets WHERE tweetid = :tweet_id", {"tweet_id" : tweet_id})
     row = cursor.fetchone()
     if row == []:
         raise NotFound('Tweet %s not found' % (tweet_id,))
@@ -151,7 +153,7 @@ def save_user(username, password):
     """
     Saves the user record.
     """
-    cursor.execute("UPDATE users SET password = :password WHERE key = :username", {"password" : password, "username" : username})
+    cursor.execute("UPDATE users SET password = :password WHERE userid = :username", {"password" : password, "username" : username})
 
 def save_tweet(username, body):
     """
@@ -162,14 +164,35 @@ def save_tweet(username, body):
     # Make sure the tweet body is utf-8 encoded
     body = body.encode('utf-8')
 
-    # Insert the tweet, then into the user's timeline, then into the public one
-    cursor.execute("UPDATE tweets SET username = :username, body = :body WHERE key = :tweet_id",{"username" : username,"body" : body, "tweet_id" : tweet_id})
-    cursor.execute("UPDATE userline SET :tweet_id = '' WHERE key = :username", {"tweet_id":tweet_id, "username":username})
-    cursor.execute("UPDATE userline SET :tweet_id = '' WHERE key = :username", {"tweet_id":tweet_id, "username":PUBLIC_USERLINE_KEY})
+    # Insert the tweet, then into the user's timeline, and userline, then into the public one
+    cursor.execute("UPDATE tweets SET userid = :username, body = :body WHERE tweetid = :tweet_id",{"username" : username,"body" : body, "tweet_id" : tweet_id})
+    cursor.execute("""
+    INSERT INTO userline
+    (userid, tweetid, body, author)
+    VALUES (:username, :tweet_id, :body, :author)
+    """, {"tweet_id":tweet_id, "username":username, "body":body, "author":username})
+
+    cursor.execute("""
+    INSERT INTO timeline
+    (userid, tweetid, body, author)
+    VALUES (:username, :tweet_id, :body, :author)
+    """, {"tweet_id":tweet_id, "username":username, "body":body, "author":username})
+
+    cursor.execute("""
+    INSERT INTO userline
+    (userid, tweetid, body, author)
+    VALUES (:username, :tweet_id, :body, :author)
+    """, {"tweet_id":tweet_id, "username":PUBLIC_USERLINE_KEY, "body":body, "author":username})
+    
     # Get the user's followers, and insert the tweet into all of their streams
     follower_usernames = [username] + get_follower_usernames(username)
     for follower_username in follower_usernames:
-        cursor.execute("UPDATE timeline SET :tweet_id = '' WHERE key = :username", {"tweet_id":tweet_id, "username":follower_username})
+            cursor.execute("""
+            INSERT INTO timeline
+            (userid, tweetid, body, author)
+            VALUES (:username, :tweet_id, :body, :author)
+            """, {"tweet_id":tweet_id, "username":follower_username, "body":body, "author":username})
+
 
 def add_friends(from_username, to_usernames):
     """
@@ -177,7 +200,7 @@ def add_friends(from_username, to_usernames):
     """
     for to_username in to_usernames:
         row_id = str(uuid.uuid1())
-        cursor.execute("UPDATE following SET followed = :to_username, followed_by = :from_username WHERE key = :row_id", {"to_username":to_username, "from_username":from_username, "row_id":row_id})
+        cursor.execute("UPDATE following SET followed = :to_username, followed_by = :from_username WHERE rowId = :row_id", {"to_username":to_username, "from_username":from_username, "row_id":row_id})
 
 def remove_friend(from_username, to_username):
     """
@@ -186,4 +209,4 @@ def remove_friend(from_username, to_username):
     cursor.execute("SELECT * FROM following WHERE followed = :followed AND followed_by = :followed_by", {"followed":to_username, "followed_by":from_username})
     row = cursor.fetchone()
     assert row != []
-    cursor.execute("DELETE FROM following WHERE key = :row", {"row":rows[0]})
+    cursor.execute("DELETE FROM following WHERE rowId = :row", {"row":rows[0]})
