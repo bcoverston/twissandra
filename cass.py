@@ -85,7 +85,7 @@ def _get_line(cf, username, start, limit):
     for entry in cursor.description:
         tweet_id = entry[0]
         print "getting tweet for ", tweet_id 
-        cursor.execute("SELECT username, body FROM tweets WHERE key = ':tweet_id'", {"tweet_id" : tweet_id})
+        cursor.execute("SELECT username, body FROM tweets WHERE key = :tweet_id", {"tweet_id" : tweet_id})
         row = cursor.fetchone()
         print "thetweet", row;
         d = _dictify_one_row(row, cursor.description)
