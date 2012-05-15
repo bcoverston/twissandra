@@ -24,7 +24,6 @@ class Command(NoArgsCommand):
             sys.drop_keyspace('twissandra')
 
         cursor = cql.connect("localhost").cursor()
-        cursor.execute("DROP KEYSPACE twissandra")
         cursor.execute("CREATE KEYSPACE twissandra WITH strategy_class='SimpleStrategy' and strategy_options:replication_factor=1") #V1 strategy become optional
         cursor.execute("USE twissandra")
         cursor.execute("CREATE COLUMNFAMILY users (KEY text PRIMARY KEY, password text)")
